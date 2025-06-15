@@ -172,8 +172,8 @@ middlewares = [
 1. **Clone the repository**:
 
    ```bash
-   git clone <your-repo-url>
-   cd <project-folder>
+   git clone https://github.com/sanayasfp/fastapi-middleware-orchestration-layer.git
+   cd fastapi-middleware-orchestration-layer
    ```
 
 2. **Install dependencies**:
