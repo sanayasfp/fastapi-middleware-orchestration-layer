@@ -16,13 +16,9 @@ middlewares = [
         middleware_name="simple_middleware",
     ),
     Middleware(
-        "with_header",
-        middleware_groups=["api"],
-    ),
-    Middleware(
         CustomClassMiddleware,
         name="Sana",
-        middleware_groups=["api"],
+        # middleware_groups=["api"],
         middleware_name="custom_class",
     ),
     Middleware(

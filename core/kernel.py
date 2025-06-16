@@ -1,3 +1,4 @@
+import contextvars
 import importlib
 import inspect
 from functools import wraps
@@ -6,7 +7,6 @@ from typing import Any, Awaitable, Callable, Dict, List, Optional, Type, Union
 from fastapi import FastAPI, Request
 from starlette.middleware import Middleware as StarletteMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
-import contextvars
 
 MiddlewareRef = Union[
     str,  # name or import path
@@ -108,11 +108,14 @@ def _resolve_middleware(
             async def dispatch(self, request, call_next):
                 return await cls_or_func(request, call_next, **self.kwargs)
 
+            def __repr__(self):
+                return f"<FuncMiddleware {cls_or_func.__name__}>"
+
+            def __str__(self):
+                return f"FuncMiddleware({cls_or_func.__name__})"
+
         return FuncMiddleware
     elif inspect.isclass(cls_or_func):
-        print(
-            f"Resolving middleware: {cls_or_func.__name__} (type={type(cls_or_func)})"
-        )
         if issubclass(cls_or_func, BaseHTTPMiddleware) or _is_asgi_middleware(
             cls_or_func
         ):
@@ -211,7 +214,7 @@ def route_middleware(ref: MiddlewareRef, **kwargs: Any):
                 return await instance.dispatch(request, call_next)
             elif _is_asgi_middleware(cls):
                 raise ValueError(
-                    "ASGI middleware cannot be applied directly to routes. Use BaseHTTPMiddleware instead."
+                    "ASGI middleware is not yet supported for route-level usage."
                 )
             else:
                 raise ValueError(

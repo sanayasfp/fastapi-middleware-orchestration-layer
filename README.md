@@ -223,7 +223,7 @@ middlewares = [
 This system adds flexibility with **minimal runtime overhead**:
 
 | Feature               | Cost                                          |
-| ---------------------|-----------------------------------------------|
+| --------------------- | --------------------------------------------- |
 | Named middleware      | Only resolves on app boot                     |
 | Import string caching | In-memory `_import_cache` avoids re-importing |
 | Route decorators      | Minor runtime wrapping                        |
@@ -236,21 +236,21 @@ This system adds flexibility with **minimal runtime overhead**:
 
 ## 🔧 Middleware Internals (for Contributors)
 
-* All middleware entries are wrapped in `core.kernel.Middleware`, a subclass of Starlette's `Middleware`
-* Middleware can be referenced:
-  * Directly (as a class or function)
-  * Via import path (`"myapp.middleware.MyMiddleware"`)
-  * By name (`"simple-logger"`) if registered in `NAMED_MIDDLEWARES`
-* ASGI middleware classes are supported directly
-* Registered via `register_named_middleware(name, cls_or_path)`
+- All middleware entries are wrapped in `core.kernel.Middleware`, a subclass of Starlette's `Middleware`
+- Middleware can be referenced:
+  - Directly (as a class or function)
+  - Via import path (`"myapp.middleware.MyMiddleware"`)
+  - By name (`"simple-logger"`) if registered in `NAMED_MIDDLEWARES`
+- ASGI middleware classes are supported directly
+- Registered via `register_named_middleware(name, cls_or_path)`
 
 ---
 
 ## 💬 Contribution Ideas
 
-- [ ] Add support for middleware order priorities  
-- [ ] Integrate `APIRoute`-level true middleware logic (via subclassing)  
-- [ ] Create a CLI to scaffold new middlewares  
-- [ ] Build tooling to visualize middleware tree and active groups  
-- [ ] Better error handling for import failures  
+- [ ] Add support for middleware order priorities
+- [ ] Integrate `APIRoute`-level true middleware logic (via subclassing)
+- [ ] Create a CLI to scaffold new middlewares
+- [ ] Build tooling to visualize middleware tree and active groups
+- [ ] Better error handling for import failures
 - [ ] Add tests for dynamic loading and group filtering
