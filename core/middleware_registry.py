@@ -1,13 +1,14 @@
 from starlette.middleware.cors import CORSMiddleware
-from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.middleware.gzip import GZipMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-# Map middleware "name" to import path or class
+from core.custom_middlewares import middleware_with_header
+
+# Map des middlewares : noms lisibles → chemins importables ou classes directes
 NAMED_MIDDLEWARES = {
     "cors": CORSMiddleware,
     "trusted_host": TrustedHostMiddleware,
     "gzip": GZipMiddleware,
-    # You can also use import paths as strings:
-    "custom_middleware": "core.custom_middlewares.custom_middleware",
-    "simple-logger": "core.custom_middlewares.SimpleLogger",
+    "raw_asgi": "core.custom_middlewares.RawASGIMiddleware",
+    "with_header": middleware_with_header,
 }

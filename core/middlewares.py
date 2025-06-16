@@ -1,24 +1,40 @@
+from core.custom_middlewares import CustomClassMiddleware, simple_middleware
 from core.kernel import Middleware
-from core.custom_middlewares import CustomMiddleware
+
+def debug_logger(request, call_next):
+    print(f"[DEBUG] Request path: {request.url.path}")
+    response = call_next(request)
+    return response
 
 middlewares = [
+    # Middleware fonctionnel avec paramètre
     Middleware(
-        "cors",
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        simple_middleware,
+        tag="TestTag",
+        middleware_groups=["api"],
+        middleware_name="simple_middleware",
+    ),
+    # Middleware fonctionnel simulant l’injection de headers
+    Middleware(
+        "with_header",
         middleware_groups=["api"],
     ),
-    Middleware("trusted_host", allowed_hosts=["*"], middleware_groups=["api"]),
-    Middleware("gzip", minimum_size=1000, middleware_groups=["api"]),
+    # Middleware basé sur BaseHTTPMiddleware
     Middleware(
-        "custom_middleware",
-        # middleware_groups=["api"],
+        CustomClassMiddleware,
+        name="Sana",
+        middleware_groups=["api"],
+        middleware_name="custom_class",
     ),
+    # Middleware ASGI nu
     Middleware(
-        "simple-logger",
+        "raw_asgi",
+        label="LoggerRaw",
         middleware_groups=["api"],
     ),
-    Middleware(CustomMiddleware, with_args="example_arg", middleware_groups=["api"]),
+    Middleware(
+        debug_logger,
+        middleware_groups=["debug", "api"],
+        middleware_name="debug_logger",
+    ),
 ]
