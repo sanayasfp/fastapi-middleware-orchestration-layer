@@ -172,8 +172,8 @@ middlewares = [
 1. **Clone the repository**:
 
    ```bash
-   git clone <your-repo-url>
-   cd <project-folder>
+   git clone https://github.com/sanayasfp/fastapi-middleware-orchestration-layer.git
+   cd fastapi-middleware-orchestration-layer
    ```
 
 2. **Install dependencies**:
@@ -248,9 +248,9 @@ This system adds flexibility with **minimal runtime overhead**:
 
 ## 💬 Contribution Ideas
 
-* Add support for middleware order priorities  
-* Integrate `APIRoute`-level true middleware logic (via subclassing)  
-* Create a CLI to scaffold new middlewares  
-* Build tooling to visualize middleware tree and active groups  
-* Better error handling for import failures  
-* Add tests for dynamic loading and group filtering
+- [ ] Add support for middleware order priorities  
+- [ ] Integrate `APIRoute`-level true middleware logic (via subclassing)  
+- [ ] Create a CLI to scaffold new middlewares  
+- [ ] Build tooling to visualize middleware tree and active groups  
+- [ ] Better error handling for import failures  
+- [ ] Add tests for dynamic loading and group filtering
