@@ -1,9 +1,8 @@
-from fastapi import Request, Header
+from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import Response
 
 
-# 🔹 Middleware fonctionnel avec paramètres (simple)
 async def simple_middleware(
     request: Request, call_next: RequestResponseEndpoint, tag: str = "DEFAULT"
 ) -> Response:
@@ -13,7 +12,6 @@ async def simple_middleware(
     return response
 
 
-# 🔹 Middleware fonctionnel avec header injecté par FastAPI (pas supporté nativement mais simulé ici)
 async def middleware_with_header(
     request: Request, call_next: RequestResponseEndpoint
 ) -> Response:
@@ -23,7 +21,6 @@ async def middleware_with_header(
     return response
 
 
-# 🔹 Middleware classe BaseHTTPMiddleware avec arg
 class CustomClassMiddleware(BaseHTTPMiddleware):
     def __init__(self, app, name="Anonymous"):
         super().__init__(app)
@@ -38,7 +35,6 @@ class CustomClassMiddleware(BaseHTTPMiddleware):
         return response
 
 
-# 🔹 Middleware ASGI "nu"
 class RawASGIMiddleware:
     def __init__(self, app, label="raw"):
         self.app = app

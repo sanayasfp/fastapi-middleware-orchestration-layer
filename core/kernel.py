@@ -9,24 +9,39 @@ from starlette.middleware.base import BaseHTTPMiddleware
 import contextvars
 
 MiddlewareRef = Union[
-    str,  # nom ou chemin d'import
-    Callable[[Request, Callable], Awaitable[Any]],  # fonction middleware
-    Type[BaseHTTPMiddleware],  # classe middleware basée sur BaseHTTPMiddleware
-    Type[Any],  # classe ASGI middleware (callable __call__)
+    str,  # name or import path
+    Callable[[Request, Callable], Awaitable[Any]],  # middleware function
+    Type[BaseHTTPMiddleware],  # BaseHTTPMiddleware-based middleware class
+    Type[Any],  # ASGI middleware class (with callable __call__)
 ]
 
-
+# Constants defining module paths for named middlewares and middleware stack.
 NAMED_MIDDLEWARES_MODULE = "core.middleware_registry.NAMED_MIDDLEWARES"
 MIDDLEWARE_STACK_MODULE = "core.middlewares.middlewares"
 
+# Global registry to store named middleware references.
 MIDDLEWARE_REGISTRY: Dict[str, MiddlewareRef] = {}
 
+# Global variable to hold the FastAPI application instance.
 _internal_app: Optional[FastAPI] = None
+
+# Context variable to store the current request object for access within middleware.
 _request_var = contextvars.ContextVar("request_var")
 
 
 def _import_string(path: str) -> Any:
-    """Importe un objet Python à partir d'un chemin string."""
+    """
+    Import a Python object from a dotted string path.
+
+    Args:
+        path: A string representing the import path (e.g., "module.submodule.Class").
+
+    Returns:
+        The imported object (class, function, or other callable).
+
+    Raises:
+        ImportError: If the path cannot be resolved or the object cannot be imported.
+    """
     try:
         module_path, attr = path.rsplit(".", 1)
         module = importlib.import_module(module_path)
@@ -36,7 +51,16 @@ def _import_string(path: str) -> Any:
 
 
 def _is_asgi_middleware(cls: Any) -> bool:
-    """Détecte si une classe est un middleware ASGI, autrement dit callable __call__ sans hériter de BaseHTTPMiddleware."""
+    """
+    Check if a class is an ASGI middleware (has a callable __call__ method
+    and does not inherit from BaseHTTPMiddleware).
+
+    Args:
+        cls: The class to check.
+
+    Returns:
+        bool: True if the class is an ASGI middleware, False otherwise.
+    """
     return (
         inspect.isclass(cls)
         and callable(getattr(cls, "__call__", None))
@@ -48,10 +72,22 @@ def _resolve_middleware(
     ref: MiddlewareRef,
 ) -> Union[Callable, Type[BaseHTTPMiddleware], Type[Any]]:
     """
-    Résout un MiddlewareRef en un objet utilisable par starlette.middleware.Middleware.
-    Retourne soit une classe middleware (BaseHTTPMiddleware ou ASGI), soit une fonction middleware.
-    """
+    Resolve a MiddlewareRef into a usable middleware object for Starlette.
 
+    This function converts a middleware reference (string, function, or class)
+    into a form that can be used by Starlette's middleware system. Functions are
+    wrapped in a BaseHTTPMiddleware subclass, while classes are validated as either
+    BaseHTTPMiddleware or ASGI middleware.
+
+    Args:
+        ref: The middleware reference (string path, function, or class).
+
+    Returns:
+        A middleware class (BaseHTTPMiddleware or ASGI) or a wrapped function.
+
+    Raises:
+        ValueError: If the middleware reference is invalid or unsupported.
+    """
     cls_or_func: Union[Callable, Type[BaseHTTPMiddleware], Type[Any]] = ref
     if isinstance(ref, str):
         if ref in MIDDLEWARE_REGISTRY:
@@ -63,7 +99,7 @@ def _resolve_middleware(
         cls_or_func = _import_string(cls_or_func)
 
     if inspect.isfunction(cls_or_func):
-        # transforme fonction en classe middleware
+        # Wrap a middleware function in a BaseHTTPMiddleware subclass
         class FuncMiddleware(BaseHTTPMiddleware):
             def __init__(self, app, **kwargs):
                 super().__init__(app)
@@ -86,18 +122,38 @@ def _resolve_middleware(
                 "Middleware class must be BaseHTTPMiddleware subclass or ASGI middleware"
             )
 
-    # Sinon erreur
+    # Raise an error for invalid middleware references
     raise ValueError(f"MiddlewareRef invalide : {ref} (type={type(ref)})")
 
 
 def register_named_middleware(name: str, ref: MiddlewareRef, *, override: bool = False):
-    """Register a middleware class or import path under a name."""
+    """
+    Register a middleware class or import path under a given name in the registry.
+
+    Args:
+        name: The name to associate with the middleware.
+        ref: The middleware reference (string path, function, or class).
+        override: If True, allows overwriting an existing middleware with the same name.
+
+    Raises:
+        ValueError: If the name is already registered and override is False.
+    """
     if name in MIDDLEWARE_REGISTRY and not override:
         raise ValueError(f"Middleware '{name}' already registered.")
     MIDDLEWARE_REGISTRY[name] = ref
 
 
 def _get_awaitable_fn(fn) -> Awaitable[Any]:
+    """
+    Wrap a function to ensure it is awaitable, supporting both sync and async functions.
+
+    Args:
+        fn: The function to wrap.
+
+    Returns:
+        A wrapped function that is awaitable.
+    """
+
     @wraps(fn)
     def wrapper(*args, **kwargs):
         if inspect.iscoroutinefunction(fn):
@@ -110,8 +166,21 @@ def _get_awaitable_fn(fn) -> Awaitable[Any]:
 
 def route_middleware(ref: MiddlewareRef, **kwargs: Any):
     """
-    Decorator to apply a middleware to a specific route.
-    The middleware can be a function or a subclass of BaseHTTPMiddleware or ASGI middleware.
+    Decorator to apply a middleware to a specific FastAPI route.
+
+    The middleware can be a function, a BaseHTTPMiddleware subclass, or an ASGI middleware.
+    This decorator wraps the route handler to apply the middleware logic only to that route.
+
+    Args:
+        ref: The middleware reference (string path, function, or class).
+        **kwargs: Additional keyword arguments to pass to the middleware.
+
+    Returns:
+        A decorator function that wraps the route handler.
+
+    Raises:
+        RuntimeError: If the FastAPI app is not initialized or RequestContextMiddleware is missing.
+        ValueError: If the middleware is invalid or unsupported for route-level application.
     """
     global _internal_app
     cls = _resolve_middleware(ref)
@@ -155,10 +224,34 @@ def route_middleware(ref: MiddlewareRef, **kwargs: Any):
 
 
 def _is_middleware_registered(app: FastAPI, middleware_class):
+    """
+    Check if a middleware class is already registered in the FastAPI app.
+
+    Args:
+        app: The FastAPI application instance.
+        middleware_class: The middleware class to check.
+
+    Returns:
+        bool: True if the middleware is registered, False otherwise.
+    """
     return any(middleware.cls == middleware_class for middleware in app.user_middleware)
 
 
 def register_middlewares(app: FastAPI, group: Optional[str] = None):
+    """
+    Register a stack of middlewares to a FastAPI application.
+
+    This function loads a middleware stack from the MIDDLEWARE_STACK_MODULE and applies
+    the middlewares to the FastAPI app. It ensures RequestContextMiddleware is always
+    registered first and supports middleware groups for conditional registration.
+
+    Args:
+        app: The FastAPI application instance.
+        group: Optional group name to filter middlewares (only those in the group are applied).
+
+    Raises:
+        ValueError: If an invalid middleware type is encountered.
+    """
     global _internal_app
     _internal_app = app
     stack: List["Middleware"] = _import_string(MIDDLEWARE_STACK_MODULE)
@@ -183,6 +276,18 @@ def register_middlewares(app: FastAPI, group: Optional[str] = None):
 
 
 class Middleware(StarletteMiddleware):
+    """
+    A wrapper class for Starlette middleware with additional group and naming support.
+
+    This class extends Starlette's Middleware to support middleware groups and named
+    registration. It resolves middleware references and allows associating middlewares
+    with specific groups for conditional application.
+
+    Attributes:
+        groups: List of group names this middleware belongs to.
+        ref: The original middleware reference (string, function, or class).
+    """
+
     def __init__(
         self,
         ref: MiddlewareRef,
@@ -195,7 +300,7 @@ class Middleware(StarletteMiddleware):
         super().__init__(cls, **kwargs)
         self.groups = middleware_groups or []
         self.ref = ref
-        
+
         if middleware_name:
             register_named_middleware(middleware_name, ref)
 
@@ -206,6 +311,17 @@ class Middleware(StarletteMiddleware):
 
 
 class RequestContextMiddleware(BaseHTTPMiddleware):
+    """
+    Middleware to store the current request in a context variable.
+
+    This middleware ensures that the current request is available in a context variable
+    (_request_var) for use by other middlewares or route handlers. It sets the request
+    at the start of processing and clears it afterward.
+
+    Methods:
+        dispatch: Handles storing and clearing the request context.
+    """
+
     async def dispatch(self, request: Request, call_next):
         token = _request_var.set(request)
         try:
@@ -215,7 +331,7 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
         return response
 
 
-# Auto-load all named middlewares from registry
+# Auto-load all named middlewares from the registry module
 NAMED_MIDDLEWARES = _import_string(NAMED_MIDDLEWARES_MODULE)
 for name, ref in NAMED_MIDDLEWARES.items():
     register_named_middleware(name, ref)
